@@ -13,17 +13,28 @@ A barebones native Mac markdown editor built with Tauri 2 + vanilla JS.
 - Unsaved-changes indicator and close guard
 - Word count, auto-save flash, remembers last file
 
-## Run
+## Prerequisites
+
+- **Rust** — https://rustup.rs
+- **Xcode Command Line Tools** — `xcode-select --install`
+- **Tauri CLI** — `cargo install tauri-cli --locked`
+
+## Dev
 
 ```bash
-npm install
-npm run tauri dev
+cargo tauri dev
 ```
 
 ## Build (Apple Silicon)
 
 ```bash
-npm run tauri build -- --target aarch64-apple-darwin
+cargo tauri build -- --target aarch64-apple-darwin
 ```
 
-Output: `src-tauri/target/aarch64-apple-darwin/release/bundle/`
+Output in `src-tauri/target/aarch64-apple-darwin/release/bundle/`.
+
+The resulting `.app` is unsigned. To open it locally without a developer certificate:
+
+```bash
+xattr -cr "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Markdown Editor.app"
+```
