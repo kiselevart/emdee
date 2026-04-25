@@ -1,14 +1,15 @@
-name: Build
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*'
 
 jobs:
-  build:
+  release:
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -29,8 +30,8 @@ jobs:
       - name: Build
         run: cargo tauri build --target aarch64-apple-darwin
 
-      - name: Upload app
-        uses: actions/upload-artifact@v4
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
         with:
-          name: Markdown-Editor-macOS
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
+          files: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg

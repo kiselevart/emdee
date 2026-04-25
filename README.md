@@ -2,6 +2,16 @@
 
 A barebones native Mac markdown editor built with Tauri 2 + vanilla JS.
 
+## Download
+
+Grab the latest `.dmg` from [Releases](https://github.com/kiselevart/emdee/releases/latest).
+
+After installing, if macOS blocks the app (unsigned binary):
+
+```bash
+xattr -cr "/Applications/Markdown Editor.app"
+```
+
 ## Features
 
 - Edit and preview markdown
@@ -13,28 +23,47 @@ A barebones native Mac markdown editor built with Tauri 2 + vanilla JS.
 - Unsaved-changes indicator and close guard
 - Word count, auto-save flash, remembers last file
 
-## Prerequisites
+## Building from source
 
-- **Rust** — https://rustup.rs
-- **Xcode Command Line Tools** — `xcode-select --install`
-- **Tauri CLI** — `cargo install tauri-cli --locked`
+### Prerequisites
 
-## Dev
+```bash
+# Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Xcode Command Line Tools
+xcode-select --install
+
+# Tauri CLI
+cargo install tauri-cli --locked
+```
+
+### Dev server
 
 ```bash
 cargo tauri dev
 ```
 
-## Build (Apple Silicon)
+### Release build (Apple Silicon)
 
 ```bash
-cargo tauri build -- --target aarch64-apple-darwin
+cargo tauri build --target aarch64-apple-darwin
 ```
 
 Output in `src-tauri/target/aarch64-apple-darwin/release/bundle/`.
 
-The resulting `.app` is unsigned. To open it locally without a developer certificate:
+To open the unsigned `.app` locally without a developer certificate:
 
 ```bash
 xattr -cr "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Markdown Editor.app"
+open "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Markdown Editor.app"
+```
+
+## Releasing
+
+Tag a commit with a version number to trigger a GitHub Actions build and publish it to Releases:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
 ```
