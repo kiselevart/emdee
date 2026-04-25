@@ -274,7 +274,18 @@ applyTheme(localStorage.getItem('theme') || 'dark');
 applyFontSize();
 updateWordCount();
 
+// File opened while the app is already running (e.g. `emdee other.md`).
+listen('open-file', async (event) => {
+    if (state.isDirty && !(await confirmUnsaved('open the file'))) return;
+    try { await loadFileByPath(event.payload); } catch (e) { console.error(e); }
+});
+
 (async () => {
+    // File passed at launch time (stored before the webview was ready).
+    const pendingPath = await invoke('get_pending_file');
+    if (pendingPath) {
+        try { await loadFileByPath(pendingPath); return; } catch {}
+    }
     const lastFilePath = localStorage.getItem('lastFilePath');
     if (lastFilePath) {
         try {

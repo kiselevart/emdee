@@ -1,9 +1,11 @@
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
-    Emitter,
+    Emitter, Manager,
 };
 use tauri_plugin_dialog::DialogExt;
-use std::fs;
+use std::{fs, sync::Mutex};
+
+struct PendingFile(Mutex<Option<String>>);
 
 fn filepath_to_string(fp: tauri_plugin_dialog::FilePath) -> Result<String, String> {
     match fp {
@@ -77,9 +79,17 @@ async fn show_confirm_dialog(
     Ok(confirmed)
 }
 
+// Called by the frontend on init to pick up a file passed at launch time,
+// before the webview was ready to receive events.
+#[tauri::command]
+fn get_pending_file(state: tauri::State<'_, PendingFile>) -> Option<String> {
+    state.0.lock().unwrap().take()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(PendingFile(Mutex::new(None)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
@@ -161,7 +171,24 @@ pub fn run() {
             save_file_as,
             read_file,
             show_confirm_dialog,
+            get_pending_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Opened { urls } = event {
+                let path = urls.iter()
+                    .filter_map(|u| u.to_file_path().ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .next();
+                if let Some(path) = path {
+                    // Emit for the already-running case (webview is up).
+                    let _ = app.emit("open-file", path.clone());
+                    // Store for the launch case (webview not yet ready).
+                    if let Some(state) = app.try_state::<PendingFile>() {
+                        *state.0.lock().unwrap() = Some(path);
+                    }
+                }
+            }
+        });
 }
