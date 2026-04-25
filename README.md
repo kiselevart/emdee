@@ -9,7 +9,7 @@ Grab the latest `.dmg` from [Releases](https://github.com/kiselevart/emdee/relea
 After installing, if macOS blocks the app (unsigned binary):
 
 ```bash
-xattr -cr "/Applications/Markdown Editor.app"
+xattr -cr "/Applications/emdee.app"
 ```
 
 ## Features
@@ -22,6 +22,7 @@ xattr -cr "/Applications/Markdown Editor.app"
 - Drag-and-drop `.md` files onto the window
 - Unsaved-changes indicator and close guard
 - Word count, auto-save flash, remembers last file
+- Light and dark mode toggle
 
 ## Building from source
 
@@ -55,8 +56,8 @@ Output in `src-tauri/target/aarch64-apple-darwin/release/bundle/`.
 To open the unsigned `.app` locally without a developer certificate:
 
 ```bash
-xattr -cr "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Markdown Editor.app"
-open "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Markdown Editor.app"
+xattr -cr "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/emdee.app"
+open "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/emdee.app"
 ```
 
 ## Releasing
