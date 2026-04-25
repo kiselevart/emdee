@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markdown Editor</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="marked.min.js"></script>
+</head>
+<body>
+  <div id="toolbar">
+    <div id="file-info">
+      <span id="filename">untitled.md</span>
+      <span id="unsaved-dot" class="hidden">●</span>
+      <span id="save-status" class="hidden">Saved</span>
+    </div>
+    <div id="toolbar-actions">
+      <button id="btn-open">Open</button>
+      <button id="btn-save">Save</button>
+      <button id="btn-toggle">Preview</button>
+    </div>
+  </div>
+
+  <div id="editor-container">
+    <textarea id="editor" spellcheck="true" placeholder="Start writing..."></textarea>
+    <div id="preview" class="hidden"></div>
+  </div>
+
+  <div id="word-count"></div>
+
+  <script src="main.js"></script>
+</body>
+</html>
