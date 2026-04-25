@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Markdown Editor",
+  "productName": "emdee",
   "version": "0.1.0",
   "identifier": "com.emdee.markdowneditor",
   "build": {
@@ -10,7 +10,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Markdown Editor",
+        "title": "emdee",
         "width": 900,
         "height": 700,
         "minWidth": 500,

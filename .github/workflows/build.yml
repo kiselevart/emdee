@@ -32,5 +32,5 @@ jobs:
       - name: Upload app
         uses: actions/upload-artifact@v4
         with:
-          name: Markdown-Editor-macOS
+          name: emdee-macOS
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app

@@ -5,8 +5,51 @@
   --accent: #569cd6;
   --unsaved: #e5a50a;
   --saved: #4ec9b0;
+  --toolbar-bg: rgba(30, 30, 30, 0.85);
+  --toolbar-border: rgba(255, 255, 255, 0.06);
+  --btn-hover: rgba(255, 255, 255, 0.09);
+  --btn-active: rgba(255, 255, 255, 0.15);
+  --heading: #e2e2e2;
+  --strong: #e2e2e2;
+  --em: #c5c5c5;
+  --code-color: #ce9178;
+  --code-bg: rgba(255, 255, 255, 0.08);
+  --pre-bg: rgba(0, 0, 0, 0.3);
+  --pre-border: rgba(255, 255, 255, 0.08);
+  --h2-border: rgba(255, 255, 255, 0.08);
+  --hr-color: rgba(255, 255, 255, 0.1);
+  --th-bg: rgba(255, 255, 255, 0.06);
+  --td-border: rgba(255, 255, 255, 0.1);
+  --caret: #fff;
+  --placeholder: rgba(255, 255, 255, 0.18);
   --toolbar-height: 48px;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace;
+}
+
+[data-theme="light"] {
+  --bg: #f7f7f7;
+  --text: #1a1a1a;
+  --text-muted: #999;
+  --accent: #0469d1;
+  --unsaved: #b86e00;
+  --saved: #1a9080;
+  --toolbar-bg: rgba(247, 247, 247, 0.88);
+  --toolbar-border: rgba(0, 0, 0, 0.08);
+  --btn-hover: rgba(0, 0, 0, 0.06);
+  --btn-active: rgba(0, 0, 0, 0.12);
+  --heading: #111;
+  --strong: #111;
+  --em: #444;
+  --code-color: #c7522a;
+  --code-bg: rgba(0, 0, 0, 0.06);
+  --pre-bg: rgba(0, 0, 0, 0.04);
+  --pre-border: rgba(0, 0, 0, 0.1);
+  --h2-border: rgba(0, 0, 0, 0.1);
+  --hr-color: rgba(0, 0, 0, 0.12);
+  --th-bg: rgba(0, 0, 0, 0.04);
+  --td-border: rgba(0, 0, 0, 0.1);
+  --caret: #000;
+  --placeholder: rgba(0, 0, 0, 0.28);
 }
 
 * {
@@ -22,6 +65,7 @@ body {
   color: var(--text);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   overflow: hidden;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 /* ── Toolbar ── */
@@ -39,11 +83,12 @@ body {
   padding: 0 16px 0 80px;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  background: rgba(30, 30, 30, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--toolbar-border);
   z-index: 100;
   -webkit-app-region: drag;
   user-select: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 #file-info {
@@ -96,12 +141,22 @@ body {
 }
 
 #toolbar button:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--btn-hover);
   opacity: 1;
 }
 
 #toolbar button:active {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--btn-active);
+}
+
+#btn-theme {
+  font-size: 15px !important;
+  padding: 4px 8px !important;
+  opacity: 0.5 !important;
+}
+
+#btn-theme:hover {
+  opacity: 0.9 !important;
 }
 
 /* ── Editor container ── */
@@ -130,10 +185,10 @@ body {
   border: none;
   outline: none;
   resize: none;
-  caret-color: #fff;
+  caret-color: var(--caret);
   overflow-y: auto;
   scrollbar-width: none;
-  transition: opacity 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 #editor::-webkit-scrollbar {
@@ -141,7 +196,7 @@ body {
 }
 
 #editor::placeholder {
-  color: rgba(255, 255, 255, 0.18);
+  color: var(--placeholder);
 }
 
 /* ── Preview ── */
@@ -171,7 +226,7 @@ body {
 #preview h4,
 #preview h5,
 #preview h6 {
-  color: #e2e2e2;
+  color: var(--heading);
   font-weight: 600;
   line-height: 1.3;
   margin: 1.6em 0 0.5em;
@@ -183,7 +238,7 @@ body {
 }
 
 #preview h1 { font-size: 2em; }
-#preview h2 { font-size: 1.5em; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.3em; }
+#preview h2 { font-size: 1.5em; border-bottom: 1px solid var(--h2-border); padding-bottom: 0.3em; }
 #preview h3 { font-size: 1.25em; }
 #preview h4 { font-size: 1.05em; }
 
@@ -202,25 +257,25 @@ body {
 }
 
 #preview strong {
-  color: #e2e2e2;
+  color: var(--strong);
 }
 
 #preview em {
-  color: #c5c5c5;
+  color: var(--em);
 }
 
 #preview code {
   font-family: var(--font-mono);
   font-size: 0.875em;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--code-bg);
   padding: 0.15em 0.45em;
   border-radius: 4px;
-  color: #ce9178;
+  color: var(--code-color);
 }
 
 #preview pre {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--pre-bg);
+  border: 1px solid var(--pre-border);
   border-radius: 6px;
   padding: 1em 1.4em;
   margin: 1.2em 0;
@@ -249,7 +304,7 @@ body {
 
 #preview hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--hr-color);
   margin: 2em 0;
 }
 
@@ -273,15 +328,15 @@ body {
 
 #preview th,
 #preview td {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--td-border);
   padding: 0.5em 0.9em;
   text-align: left;
 }
 
 #preview th {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--th-bg);
   font-weight: 600;
-  color: #e2e2e2;
+  color: var(--heading);
 }
 
 #preview img {

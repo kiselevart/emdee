@@ -14,10 +14,26 @@ const preview     = document.getElementById('preview');
 const btnOpen     = document.getElementById('btn-open');
 const btnSave     = document.getElementById('btn-save');
 const btnToggle   = document.getElementById('btn-toggle');
+const btnTheme    = document.getElementById('btn-theme');
 const filename    = document.getElementById('filename');
 const unsavedDot  = document.getElementById('unsaved-dot');
 const saveStatus  = document.getElementById('save-status');
 const wordCountEl = document.getElementById('word-count');
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+
+const THEMES = ['dark', 'light'];
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    btnTheme.textContent = theme === 'dark' ? '☀' : '☽';
+    localStorage.setItem('theme', theme);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+}
 
 // ── Font size ──────────────────────────────────────────────────────────────
 
@@ -208,6 +224,7 @@ listen('menu-open',           () => openFile());
 listen('menu-save',           () => saveFile());
 listen('menu-save-as',        () => saveFileAs());
 listen('menu-toggle-preview', () => toggleMode());
+listen('menu-toggle-theme',   () => toggleTheme());
 listen('menu-increase-font',  () => changeFontSize(1));
 listen('menu-decrease-font',  () => changeFontSize(-1));
 listen('menu-actual-size',    () => resetFontSize());
@@ -248,10 +265,12 @@ listen('tauri://drag-drop', async (event) => {
 btnOpen.addEventListener('click', openFile);
 btnSave.addEventListener('click', saveFile);
 btnToggle.addEventListener('click', toggleMode);
+btnTheme.addEventListener('click', toggleTheme);
 editor.addEventListener('input', markDirty);
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
+applyTheme(localStorage.getItem('theme') || 'dark');
 applyFontSize();
 updateWordCount();
 
