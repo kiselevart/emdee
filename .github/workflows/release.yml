@@ -27,11 +27,18 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --locked
 
-      - name: Build
-        run: cargo tauri build --target aarch64-apple-darwin
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build app bundle
+        run: cargo tauri build --target aarch64-apple-darwin --bundles app
+
+      - name: Create DMG
+        run: |
+          APP_DIR="src-tauri/target/aarch64-apple-darwin/release/bundle/macos"
+          create-dmg --no-code-sign "emdee.dmg" "$APP_DIR"
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          files: emdee.dmg
