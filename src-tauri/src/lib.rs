@@ -105,6 +105,12 @@ pub fn run() {
             let save_as_item = MenuItemBuilder::with_id("menu-save-as", "Save As...")
                 .accelerator("CmdOrCtrl+Shift+S")
                 .build(app)?;
+            let new_tab_item = MenuItemBuilder::with_id("menu-new-tab", "New Tab")
+                .accelerator("CmdOrCtrl+T")
+                .build(app)?;
+            let close_tab_item = MenuItemBuilder::with_id("menu-close-tab", "Close Tab")
+                .accelerator("CmdOrCtrl+W")
+                .build(app)?;
             let toggle_item = MenuItemBuilder::with_id("menu-toggle-preview", "Toggle Preview")
                 .accelerator("CmdOrCtrl+E")
                 .build(app)?;
@@ -125,11 +131,12 @@ pub fn run() {
 
             let file_submenu = SubmenuBuilder::new(app, "File")
                 .item(&new_item)
+                .item(&new_tab_item)
                 .item(&open_item)
                 .item(&save_item)
                 .item(&save_as_item)
                 .separator()
-                .item(&PredefinedMenuItem::close_window(app, Some("Close"))?)
+                .item(&close_tab_item)
                 .build()?;
 
             let edit_submenu = SubmenuBuilder::new(app, "Edit")

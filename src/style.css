@@ -23,6 +23,7 @@
   --caret: #fff;
   --placeholder: rgba(255, 255, 255, 0.18);
   --toolbar-height: 48px;
+  --tab-bar-height: 34px;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace;
 }
 
@@ -159,11 +160,121 @@ body {
   opacity: 0.9 !important;
 }
 
+/* ── Tab bar ── */
+
+#tab-bar {
+  position: fixed;
+  top: var(--toolbar-height);
+  left: 0;
+  right: 0;
+  height: var(--tab-bar-height);
+  display: flex;
+  align-items: stretch;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--toolbar-border);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  -webkit-app-region: drag;
+  user-select: none;
+  z-index: 99;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 0 12px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.5;
+  cursor: pointer;
+  border-right: 1px solid var(--toolbar-border);
+  min-width: 80px;
+  max-width: 200px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  transition: background 0.1s, opacity 0.1s;
+}
+
+.tab:hover {
+  opacity: 0.8;
+  background: var(--btn-hover);
+}
+
+.tab.active {
+  opacity: 1;
+  background: var(--btn-hover);
+}
+
+.tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-dot {
+  color: var(--unsaved);
+  font-size: 8px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.tab-close {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  line-height: 1;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  opacity: 0.5;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  background: var(--btn-active);
+}
+
+#btn-new-tab {
+  padding: 0 12px;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.35;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.1s, background 0.1s;
+}
+
+#btn-new-tab:hover {
+  opacity: 0.8;
+  background: var(--btn-hover);
+}
+
 /* ── Editor container ── */
 
 #editor-container {
   position: fixed;
-  top: var(--toolbar-height);
+  top: calc(var(--toolbar-height) + var(--tab-bar-height));
   left: 0;
   right: 0;
   bottom: 0;
