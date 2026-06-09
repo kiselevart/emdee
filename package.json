@@ -1,6 +1,7 @@
 {
   "name": "emdee",
   "version": "0.1.6",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "test": "node --test",

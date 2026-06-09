@@ -2,6 +2,8 @@
 
 A barebones native Mac markdown editor built with Tauri 2 + vanilla JS.
 
+Free and open source under the MIT License.
+
 ## Download
 
 Grab the latest `.dmg` from [Releases](https://github.com/kiselevart/emdee/releases/latest).
@@ -78,3 +80,7 @@ Tag a commit with a version number to trigger a GitHub Actions build and publish
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Artem Kiselev
