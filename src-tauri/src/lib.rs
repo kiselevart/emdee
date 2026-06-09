@@ -86,6 +86,28 @@ fn get_pending_file(state: tauri::State<'_, PendingFile>) -> Option<String> {
     state.0.lock().unwrap().take()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn filepath_to_string_keeps_path_text() {
+        let path = PathBuf::from("/tmp/emdee-note.md");
+        let result = filepath_to_string(tauri_plugin_dialog::FilePath::Path(path));
+        assert_eq!(result.unwrap(), "/tmp/emdee-note.md");
+    }
+
+    #[test]
+    fn pending_file_is_consumed_once() {
+        let state = PendingFile(Mutex::new(Some("/tmp/opened.md".to_string())));
+        let first = state.0.lock().unwrap().take();
+        let second = state.0.lock().unwrap().take();
+        assert_eq!(first.as_deref(), Some("/tmp/opened.md"));
+        assert_eq!(second, None);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -129,6 +151,16 @@ pub fn run() {
                     .accelerator("CmdOrCtrl+Minus")
                     .build(app)?;
 
+            let app_submenu = SubmenuBuilder::new(app, "emdee")
+                .item(&PredefinedMenuItem::about(app, None, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::hide(app, None)?)
+                .item(&PredefinedMenuItem::hide_others(app, None)?)
+                .item(&PredefinedMenuItem::show_all(app, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+
             let file_submenu = SubmenuBuilder::new(app, "File")
                 .item(&new_item)
                 .item(&new_tab_item)
@@ -160,6 +192,7 @@ pub fn run() {
                 .build()?;
 
             let menu = MenuBuilder::new(app)
+                .item(&app_submenu)
                 .item(&file_submenu)
                 .item(&edit_submenu)
                 .item(&view_submenu)

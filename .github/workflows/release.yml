@@ -27,6 +27,12 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --locked
 
+      - name: Run JavaScript tests
+        run: npm test
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
       - name: Install create-dmg
         run: npm install -g create-dmg
 

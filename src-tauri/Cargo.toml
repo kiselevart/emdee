@@ -1,6 +1,6 @@
 [package]
 name = "emdee"
-version = "0.1.3"
+version = "0.1.5"
 description = "emdee"
 authors = []
 edition = "2024"

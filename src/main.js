@@ -1,3 +1,11 @@
+import {
+    clampFontSize,
+    formatWordCount,
+    displayNameFromPath,
+    shouldReuseBlankTab,
+    renderMarkdownSource,
+} from './app-logic.mjs';
+
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const { getCurrentWindow } = window.__TAURI__.window;
@@ -19,7 +27,7 @@ function activeTab() {
 // ── Global state ───────────────────────────────────────────────────────────
 
 const state = {
-    isPreviewMode: false,
+    isPreviewMode: true,
     fontSize: parseInt(localStorage.getItem('fontSize') || '15', 10),
 };
 
@@ -58,7 +66,7 @@ function applyFontSize() {
 }
 
 function changeFontSize(delta) {
-    state.fontSize = Math.max(10, Math.min(32, state.fontSize + delta));
+    state.fontSize = clampFontSize(state.fontSize + delta);
     localStorage.setItem('fontSize', state.fontSize);
     applyFontSize();
 }
@@ -72,9 +80,56 @@ function resetFontSize() {
 // ── Word count ─────────────────────────────────────────────────────────────
 
 function updateWordCount() {
-    const text = editor.value;
-    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    wordCountEl.textContent = words + 'w  ' + text.length + 'c';
+    wordCountEl.textContent = formatWordCount(activeTab()?.content || '');
+}
+
+function getEditorText() {
+    return (editor.innerText || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r\n?/g, '\n');
+}
+
+function renderActiveView() {
+    const source = activeTab()?.content || '';
+    if (state.isPreviewMode) {
+        preview.innerHTML = marked.parse(source);
+    } else {
+        renderEditMode(source);
+    }
+}
+
+function getCaretOffset() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return 0;
+    const range = selection.getRangeAt(0);
+    const pre = range.cloneRange();
+    pre.selectNodeContents(editor);
+    pre.setEnd(range.endContainer, range.endOffset);
+    return pre.toString().length;
+}
+
+function setCaretOffset(offset) {
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    let remaining = offset;
+    while (node) {
+        const len = node.textContent.length;
+        if (remaining <= len) {
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.setStart(node, remaining);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+        }
+        remaining -= len;
+        node = walker.nextNode();
+    }
+}
+
+function renderEditMode(source) {
+    editor.innerHTML = renderMarkdownSource(source);
 }
 
 // ── Tab bar rendering ──────────────────────────────────────────────────────
@@ -87,7 +142,7 @@ function renderTabBar() {
 
         const nameEl = document.createElement('span');
         nameEl.className = 'tab-name';
-        nameEl.textContent = tab.path ? tab.path.split('/').pop() : 'untitled.md';
+        nameEl.textContent = displayNameFromPath(tab.path);
         el.appendChild(nameEl);
 
         if (tab.isDirty) {
@@ -125,7 +180,7 @@ function renderTabBar() {
 function syncToolbar() {
     const tab = activeTab();
     if (!tab) return;
-    filename.textContent = tab.path ? tab.path.split('/').pop() : 'untitled.md';
+    filename.textContent = displayNameFromPath(tab.path);
     if (tab.isDirty) {
         unsavedDot.classList.remove('hidden');
     } else {
@@ -137,17 +192,18 @@ function syncToolbar() {
 
 function toggleMode() {
     if (state.isPreviewMode) {
+        renderEditMode(activeTab()?.content || '');
         preview.classList.add('hidden');
         editor.classList.remove('hidden');
         editor.focus();
-        btnToggle.textContent = 'Preview';
+        btnToggle.textContent = 'Read';
         state.isPreviewMode = false;
     } else {
-        preview.innerHTML = marked.parse(editor.value);
         editor.classList.add('hidden');
         preview.classList.remove('hidden');
         btnToggle.textContent = 'Edit';
         state.isPreviewMode = true;
+        renderActiveView();
     }
 }
 
@@ -157,7 +213,6 @@ function activateTab(id) {
     // Persist current editor content and scroll before leaving
     const prev = activeTab();
     if (prev) {
-        prev.content = editor.value;
         prev.scrollTop = editor.scrollTop;
     }
 
@@ -165,17 +220,12 @@ function activateTab(id) {
     const tab = activeTab();
     if (!tab) return;
 
-    editor.value = tab.content;
     editor.scrollTop = tab.scrollTop;
     syncToolbar();
     renderTabBar();
     updateWordCount();
-
-    if (state.isPreviewMode) {
-        preview.innerHTML = marked.parse(editor.value);
-    } else {
-        editor.focus();
-    }
+    renderActiveView();
+    if (!state.isPreviewMode) editor.focus();
 }
 
 // ── Tab lifecycle ──────────────────────────────────────────────────────────
@@ -184,8 +234,6 @@ function newTab() {
     const tab = createTabState();
     tabs.push(tab);
     activateTab(tab.id);
-    if (state.isPreviewMode) toggleMode();
-    editor.focus();
 }
 
 async function closeTab(id) {
@@ -193,7 +241,7 @@ async function closeTab(id) {
     if (!tab) return;
 
     if (tab.isDirty) {
-        const name = tab.path ? tab.path.split('/').pop() : 'untitled.md';
+        const name = displayNameFromPath(tab.path);
         const confirmed = await invoke('show_confirm_dialog', {
             message: `"${name}" has unsaved changes. Discard and close?`,
             title: 'Unsaved Changes',
@@ -202,7 +250,7 @@ async function closeTab(id) {
     }
 
     if (tabs.length === 1) {
-        await getCurrentWindow().close();
+        await getCurrentWindow().destroy();
         return;
     }
 
@@ -212,11 +260,10 @@ async function closeTab(id) {
     if (activeTabId === id) {
         const next = tabs[Math.min(idx, tabs.length - 1)];
         activeTabId = next.id;
-        editor.value = next.content;
         editor.scrollTop = next.scrollTop;
         syncToolbar();
         updateWordCount();
-        if (state.isPreviewMode) preview.innerHTML = marked.parse(editor.value);
+        renderActiveView();
     }
 
     renderTabBar();
@@ -227,23 +274,21 @@ async function closeTab(id) {
 // Reuses current tab if it's a blank untitled clean tab; otherwise opens a new one.
 function applyFileInTab(path, content) {
     const tab = activeTab();
-    if (tab && !tab.path && !tab.isDirty && tab.content === '') {
+    if (shouldReuseBlankTab(tab)) {
         // Reuse current blank tab
         applyFileContent(path, content);
     } else {
         // Open in a new tab
         const prev = activeTab();
-        if (prev) prev.content = editor.value;
         const newTabState = createTabState(path, content);
         tabs.push(newTabState);
         activeTabId = newTabState.id;
-        editor.value = content;
         editor.scrollTop = 0;
         syncToolbar();
         localStorage.setItem('lastFilePath', path);
         renderTabBar();
         updateWordCount();
-        if (state.isPreviewMode) toggleMode();
+        renderActiveView();
     }
 }
 
@@ -256,13 +301,12 @@ function applyFileContent(path, content) {
     tab.content = content;
     tab.isDirty = false;
     tab.scrollTop = 0;
-    editor.value = content;
     editor.scrollTop = 0;
     syncToolbar();
     localStorage.setItem('lastFilePath', path);
     renderTabBar();
     updateWordCount();
-    if (state.isPreviewMode) toggleMode();
+    renderActiveView();
 }
 
 async function loadFileByPath(path) {
@@ -319,7 +363,6 @@ async function openFile() {
 async function saveFile() {
     const tab = activeTab();
     if (!tab) return;
-    tab.content = editor.value;
     if (tab.path) {
         try {
             await invoke('save_file', { path: tab.path, content: tab.content });
@@ -335,7 +378,6 @@ async function saveFile() {
 async function saveFileAs() {
     const tab = activeTab();
     if (!tab) return;
-    tab.content = editor.value;
     try {
         const newPath = await invoke('save_file_as', { content: tab.content });
         tab.path = newPath;
@@ -402,7 +444,7 @@ listen('tauri://close-requested', async () => {
     const dirtyTabs = tabs.filter(t => t.isDirty);
     if (dirtyTabs.length > 0) {
         const names = dirtyTabs
-            .map(t => t.path ? t.path.split('/').pop() : 'untitled.md')
+            .map(t => displayNameFromPath(t.path))
             .join(', ');
         const confirmed = await invoke('show_confirm_dialog', {
             message: `You have unsaved changes in: ${names}. Discard and close?`,
@@ -410,7 +452,8 @@ listen('tauri://close-requested', async () => {
         });
         if (!confirmed) return;
     }
-    await getCurrentWindow().close();
+    // destroy() bypasses close-requested; close() would re-fire it, causing an infinite loop.
+    await getCurrentWindow().destroy();
 });
 
 // ── Drag and drop ──────────────────────────────────────────────────────────
@@ -446,7 +489,17 @@ btnOpen.addEventListener('click', openFile);
 btnSave.addEventListener('click', saveFile);
 btnToggle.addEventListener('click', toggleMode);
 btnTheme.addEventListener('click', toggleTheme);
-editor.addEventListener('input', markDirty);
+editor.addEventListener('input', () => {
+    if (!state.isPreviewMode) {
+        const caret = getCaretOffset();
+        const text = getEditorText();
+        const tab = activeTab();
+        if (tab) tab.content = text;
+        markDirty();
+        renderEditMode(text);
+        setCaretOffset(caret);
+    }
+});
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -458,6 +511,10 @@ tabs.push(firstTab);
 activeTabId = firstTab.id;
 renderTabBar();
 updateWordCount();
+editor.classList.add('hidden');
+preview.classList.remove('hidden');
+btnToggle.textContent = 'Edit';
+renderActiveView();
 
 // File opened while app is already running (e.g. `emdee other.md`).
 listen('open-file', async (event) => {

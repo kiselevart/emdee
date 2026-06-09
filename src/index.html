@@ -17,7 +17,7 @@
     <div id="toolbar-actions">
       <button id="btn-open">Open</button>
       <button id="btn-save">Save</button>
-      <button id="btn-toggle">Preview</button>
+      <button id="btn-toggle">Edit</button>
       <button id="btn-theme" title="Toggle theme">☀</button>
     </div>
   </div>
@@ -25,12 +25,12 @@
   <div id="tab-bar"></div>
 
   <div id="editor-container">
-    <textarea id="editor" spellcheck="true" placeholder="Start writing..."></textarea>
-    <div id="preview" class="hidden"></div>
+    <div id="editor" class="hidden" contenteditable="true" spellcheck="true" data-placeholder="Start writing..."></div>
+    <div id="preview"></div>
   </div>
 
   <div id="word-count"></div>
 
-  <script src="main.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

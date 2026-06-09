@@ -280,7 +280,7 @@ body {
   bottom: 0;
 }
 
-/* ── Textarea ── */
+/* ── Editor ── */
 
 #editor {
   position: absolute;
@@ -295,10 +295,11 @@ body {
   padding: 40px 80px;
   border: none;
   outline: none;
-  resize: none;
   caret-color: var(--caret);
   overflow-y: auto;
   scrollbar-width: none;
+  white-space: pre-wrap;
+  word-break: break-word;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -306,9 +307,56 @@ body {
   display: none;
 }
 
-#editor::placeholder {
+#editor:empty::before {
+  content: attr(data-placeholder);
   color: var(--placeholder);
 }
+
+#editor .md-line,
+#editor .md-heading,
+#editor .md-list {
+  min-height: 1.7em;
+}
+
+.md-marker {
+  opacity: 0.45;
+}
+
+.md-bold {
+  font-weight: 700;
+}
+
+.md-italic {
+  font-style: italic;
+}
+
+.md-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--code-bg);
+  padding: 0.15em 0.45em;
+  border-radius: 4px;
+  color: var(--code-color);
+}
+
+.md-link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.md-url {
+  opacity: 0.7;
+}
+
+.md-heading {
+  color: var(--heading);
+  font-weight: 600;
+}
+
+.md-h1 { font-size: 2em; }
+.md-h2 { font-size: 1.5em; }
+.md-h3 { font-size: 1.25em; }
+.md-h4 { font-size: 1.05em; }
 
 /* ── Preview ── */
 

@@ -1,4 +1,10 @@
 {
   "name": "emdee",
-  "version": "0.1.3"
+  "version": "0.1.5",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml"
+  }
 }

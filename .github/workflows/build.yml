@@ -26,8 +26,14 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --locked
 
+      - name: Run JavaScript tests
+        run: npm test
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
       - name: Build
-        run: cargo tauri build --target aarch64-apple-darwin
+        run: cargo tauri build --target aarch64-apple-darwin --bundles app
 
       - name: Upload app
         uses: actions/upload-artifact@v4
