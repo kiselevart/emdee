@@ -139,6 +139,8 @@ pub fn run() {
             let toggle_theme_item = MenuItemBuilder::with_id("menu-toggle-theme", "Toggle Light/Dark")
                 .accelerator("CmdOrCtrl+Shift+L")
                 .build(app)?;
+            let toggle_vim_item = MenuItemBuilder::with_id("menu-toggle-vim", "Toggle Vim Keybindings")
+                .build(app)?;
             let actual_size_item = MenuItemBuilder::with_id("menu-actual-size", "Actual Size")
                 .accelerator("CmdOrCtrl+0")
                 .build(app)?;
@@ -185,6 +187,7 @@ pub fn run() {
             let view_submenu = SubmenuBuilder::new(app, "View")
                 .item(&toggle_item)
                 .item(&toggle_theme_item)
+                .item(&toggle_vim_item)
                 .separator()
                 .item(&actual_size_item)
                 .item(&increase_font_item)

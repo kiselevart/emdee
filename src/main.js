@@ -2,9 +2,15 @@ import {
     clampFontSize,
     formatWordCount,
     displayNameFromPath,
+    linewiseSelection,
     shouldReuseBlankTab,
     renderMarkdownSource,
 } from './app-logic.mjs';
+import {
+    applyInsertEdit,
+    createVimState,
+    handleVimKey,
+} from './vim-engine.mjs';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -17,7 +23,14 @@ let nextTabId = 1;
 let activeTabId = null;
 
 function createTabState(path = null, content = '') {
-    return { id: nextTabId++, path, content, isDirty: false, scrollTop: 0 };
+    return {
+        id: nextTabId++,
+        path,
+        content,
+        isDirty: false,
+        scrollTop: 0,
+        vimState: createVimState(content),
+    };
 }
 
 function activeTab() {
@@ -29,6 +42,8 @@ function activeTab() {
 const state = {
     isPreviewMode: true,
     fontSize: parseInt(localStorage.getItem('fontSize') || '15', 10),
+    vimEnabled: localStorage.getItem('vimEnabled') === 'true',
+    vim: createVimState(),
 };
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
@@ -39,11 +54,13 @@ const tabBar      = document.getElementById('tab-bar');
 const btnOpen     = document.getElementById('btn-open');
 const btnSave     = document.getElementById('btn-save');
 const btnToggle   = document.getElementById('btn-toggle');
+const btnVim      = document.getElementById('btn-vim');
 const btnTheme    = document.getElementById('btn-theme');
 const filename    = document.getElementById('filename');
 const unsavedDot  = document.getElementById('unsaved-dot');
 const saveStatus  = document.getElementById('save-status');
 const wordCountEl = document.getElementById('word-count');
+const vimStatus   = document.getElementById('vim-status');
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
@@ -102,16 +119,38 @@ function getCaretOffset() {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return 0;
     const range = selection.getRangeAt(0);
+    const line = range.endContainer.nodeType === Node.ELEMENT_NODE
+        ? range.endContainer.closest?.('[data-source-line]')
+        : range.endContainer.parentElement?.closest('[data-source-line]');
+    if (!line) return 0;
+
+    const lineIndex = Number(line.dataset.sourceLine);
     const pre = range.cloneRange();
-    pre.selectNodeContents(editor);
+    pre.selectNodeContents(line);
     pre.setEnd(range.endContainer, range.endOffset);
-    return pre.toString().length;
+    const column = pre.toString().length;
+    const lineElements = Array.from(editor.querySelectorAll('[data-source-line]'));
+    const before = lineElements.slice(0, lineIndex)
+        .reduce((total, element) => total + (element.textContent || '').length + 1, 0);
+    return before + column;
 }
 
-function setCaretOffset(offset) {
-    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+function setCaretOffset(offset, scroll = 'nearest') {
+    const source = activeTab()?.content || '';
+    const lines = source.split('\n');
+    let lineIndex = 0;
+    let lineStart = 0;
+    while (lineIndex < lines.length - 1 && lineStart + lines[lineIndex].length < offset) {
+        lineStart += lines[lineIndex].length + 1;
+        lineIndex++;
+    }
+
+    const line = editor.querySelector(`[data-source-line="${lineIndex}"]`);
+    if (!line) return;
+    const column = Math.min(offset - lineStart, lines[lineIndex].length);
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
-    let remaining = offset;
+    let remaining = column;
     while (node) {
         const len = node.textContent.length;
         if (remaining <= len) {
@@ -121,15 +160,187 @@ function setCaretOffset(offset) {
             range.collapse(true);
             sel.removeAllRanges();
             sel.addRange(range);
+            scrollCaretLine(line, scroll);
             return;
         }
         remaining -= len;
         node = walker.nextNode();
     }
+
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.setStart(line, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    scrollCaretLine(line, scroll);
+}
+
+function setLinewiseSelection(anchorOffset, activeOffset, scroll = 'nearest') {
+    const source = activeTab()?.content || '';
+    const selection = linewiseSelection(source, anchorOffset, activeOffset);
+    const startLine = source.slice(0, selection.start).split('\n').length - 1;
+    const endLine = source.slice(0, selection.end).split('\n').length - 1;
+    const start = editor.querySelector(`[data-source-line="${startLine}"]`);
+    const end = editor.querySelector(`[data-source-line="${endLine}"]`);
+    if (!start || !end) return;
+
+    const range = document.createRange();
+    const browserSelection = window.getSelection();
+    range.setStart(start, 0);
+    range.setEnd(end, end.childNodes.length);
+    browserSelection.removeAllRanges();
+    browserSelection.addRange(range);
+    const activeLine = source.slice(0, activeOffset).split('\n').length - 1;
+    const active = editor.querySelector(`[data-source-line="${activeLine}"]`);
+    if (active) scrollCaretLine(active, scroll);
+}
+
+function scrollCaretLine(line, scroll) {
+    if (scroll === 'top') {
+        editor.scrollTop = 0;
+    } else if (scroll === 'bottom') {
+        editor.scrollTop = editor.scrollHeight;
+    } else if (scroll === 'nearest') {
+        line.scrollIntoView({ block: 'nearest' });
+    } else if (scroll === 'center') {
+        line.scrollIntoView({ block: 'center' });
+    }
 }
 
 function renderEditMode(source) {
     editor.innerHTML = renderMarkdownSource(source);
+}
+
+// ── Vim keybindings ────────────────────────────────────────────────────────
+
+function applyVimState() {
+    const active = state.vimEnabled;
+    btnVim.classList.toggle('active', active);
+    vimStatus.classList.toggle('hidden', !active);
+    vimStatus.textContent = state.isPreviewMode
+        ? 'VIM READ'
+        : state.vim.mode === 'command'
+            ? `:${state.vim.command}`
+            : state.vim.mode === 'search'
+                ? `${state.vim.searchDirection > 0 ? '/' : '?'}${state.vim.search}`
+            : state.vim.mode === 'visual-line'
+                ? 'VIM VISUAL LINE'
+            : state.vim.pending
+                ? `VIM ${state.vim.mode.toUpperCase()} ${state.vim.pending}`
+            : `VIM ${state.vim.mode.toUpperCase()}`;
+    editor.classList.toggle('vim-normal', active && state.vim.mode === 'normal');
+    editor.contentEditable = 'true';
+}
+
+function toggleVim() {
+    state.vimEnabled = !state.vimEnabled;
+    localStorage.setItem('vimEnabled', state.vimEnabled);
+    state.vim = createVimState(activeTab()?.content || '', getCaretOffset());
+    applyVimState();
+    if (!state.isPreviewMode) editor.focus();
+}
+
+function syncVimDocument() {
+    const tab = activeTab();
+    if (!tab) return;
+    if (state.vim.source !== tab.content) {
+        state.vim = { ...state.vim, source: tab.content, cursor: 0, undoStack: [], redoStack: [] };
+    }
+    tab.vimState = state.vim;
+}
+
+async function runVimEffects(effects) {
+    for (const effect of effects) {
+        if (effect.type === 'clipboard-write') {
+            await navigator.clipboard.writeText(effect.text)
+                .catch((error) => console.error('clipboard write error:', error));
+        } else if (effect.type === 'save') {
+            await saveFile();
+        } else if (effect.type === 'save-close') {
+            if (await saveFile()) await closeTab(activeTabId);
+        } else if (effect.type === 'close') {
+            await closeTab(activeTabId, effect.force);
+        } else if (effect.type === 'scroll') {
+            if (state.vim.mode === 'visual-line') {
+                setLinewiseSelection(state.vim.visualAnchor, state.vim.visualActive, effect.position);
+            } else {
+                setCaretOffset(state.vim.cursor, effect.position);
+            }
+        } else if (effect.type === 'scroll-page') {
+            editor.scrollBy({
+                top: editor.clientHeight * (effect.full ? 1 : 0.5) * effect.direction,
+                behavior: 'smooth',
+            });
+        } else if (effect.type === 'viewport-cursor') {
+            const visible = Array.from(editor.querySelectorAll('[data-source-line]'))
+                .filter((line) => {
+                    const rect = line.getBoundingClientRect();
+                    const container = editor.getBoundingClientRect();
+                    return rect.bottom >= container.top && rect.top <= container.bottom;
+                });
+            if (visible.length > 0) {
+                const index = effect.position === 'h'
+                    ? 0
+                    : effect.position === 'l'
+                        ? visible.length - 1
+                        : Math.floor(visible.length / 2);
+                const lineNumber = Number(visible[index].dataset.sourceLine);
+                const lines = state.vim.source.split('\n');
+                state.vim = {
+                    ...state.vim,
+                    cursor: lines.slice(0, lineNumber).reduce((total, line) => total + line.length + 1, 0),
+                };
+                setCaretOffset(state.vim.cursor);
+            }
+        } else if (effect.type === 'open-path') {
+            try {
+                const content = await invoke('read_file', { path: effect.path });
+                applyFileInTab(effect.path, content);
+            } catch (error) {
+                console.error('open-path error:', error);
+            }
+        }
+    }
+}
+
+function renderVimState(previousSource) {
+    const tab = activeTab();
+    if (!tab) return;
+    if (state.vim.source !== previousSource) {
+        tab.content = state.vim.source;
+        markDirty();
+        renderEditMode(tab.content);
+    }
+    tab.vimState = state.vim;
+    applyVimState();
+    if (state.vim.mode === 'visual-line') {
+        setLinewiseSelection(state.vim.visualAnchor, state.vim.visualActive);
+    } else if (!state.isPreviewMode) {
+        setCaretOffset(state.vim.cursor, 'nearest');
+    }
+}
+
+function handleVimKeydown(e) {
+    if (!state.vimEnabled || state.isPreviewMode) return false;
+    syncVimDocument();
+    if (state.vim.mode !== 'command' && state.vim.mode !== 'search' && state.vim.mode !== 'visual-line') {
+        state.vim = { ...state.vim, cursor: getCaretOffset() };
+    }
+    const previousSource = state.vim.source;
+    const output = handleVimKey(state.vim, {
+        key: e.key,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        altKey: e.altKey,
+        shiftKey: e.shiftKey,
+    });
+    if (!output.handled) return false;
+    e.preventDefault();
+    state.vim = output.state;
+    renderVimState(previousSource);
+    void runVimEffects(output.effects);
+    return true;
 }
 
 // ── Tab bar rendering ──────────────────────────────────────────────────────
@@ -195,14 +406,19 @@ function toggleMode() {
         renderEditMode(activeTab()?.content || '');
         preview.classList.add('hidden');
         editor.classList.remove('hidden');
-        editor.focus();
         btnToggle.textContent = 'Read';
         state.isPreviewMode = false;
+        if (state.vimEnabled) {
+            state.vim = { ...state.vim, source: activeTab()?.content || '', mode: 'normal', cursor: 0 };
+        }
+        applyVimState();
+        editor.focus();
     } else {
         editor.classList.add('hidden');
         preview.classList.remove('hidden');
         btnToggle.textContent = 'Edit';
         state.isPreviewMode = true;
+        applyVimState();
         renderActiveView();
     }
 }
@@ -219,6 +435,7 @@ function activateTab(id) {
     activeTabId = id;
     const tab = activeTab();
     if (!tab) return;
+    state.vim = tab.vimState || createVimState(tab.content);
 
     editor.scrollTop = tab.scrollTop;
     syncToolbar();
@@ -236,11 +453,11 @@ function newTab() {
     activateTab(tab.id);
 }
 
-async function closeTab(id) {
+async function closeTab(id, force = false) {
     const tab = tabs.find(t => t.id === id);
     if (!tab) return;
 
-    if (tab.isDirty) {
+    if (tab.isDirty && !force) {
         const name = displayNameFromPath(tab.path);
         const confirmed = await invoke('show_confirm_dialog', {
             message: `"${name}" has unsaved changes. Discard and close?`,
@@ -260,6 +477,7 @@ async function closeTab(id) {
     if (activeTabId === id) {
         const next = tabs[Math.min(idx, tabs.length - 1)];
         activeTabId = next.id;
+        state.vim = next.vimState || createVimState(next.content);
         editor.scrollTop = next.scrollTop;
         syncToolbar();
         updateWordCount();
@@ -283,6 +501,7 @@ function applyFileInTab(path, content) {
         const newTabState = createTabState(path, content);
         tabs.push(newTabState);
         activeTabId = newTabState.id;
+        state.vim = newTabState.vimState;
         editor.scrollTop = 0;
         syncToolbar();
         localStorage.setItem('lastFilePath', path);
@@ -301,6 +520,8 @@ function applyFileContent(path, content) {
     tab.content = content;
     tab.isDirty = false;
     tab.scrollTop = 0;
+    tab.vimState = createVimState(content);
+    state.vim = tab.vimState;
     editor.scrollTop = 0;
     syncToolbar();
     localStorage.setItem('lastFilePath', path);
@@ -362,22 +583,24 @@ async function openFile() {
 
 async function saveFile() {
     const tab = activeTab();
-    if (!tab) return;
+    if (!tab) return false;
     if (tab.path) {
         try {
             await invoke('save_file', { path: tab.path, content: tab.content });
             markSaved();
+            return true;
         } catch (e) {
             console.error('save error:', e);
+            return false;
         }
     } else {
-        await saveFileAs();
+        return await saveFileAs();
     }
 }
 
 async function saveFileAs() {
     const tab = activeTab();
-    if (!tab) return;
+    if (!tab) return false;
     try {
         const newPath = await invoke('save_file_as', { content: tab.content });
         tab.path = newPath;
@@ -385,16 +608,27 @@ async function saveFileAs() {
         localStorage.setItem('lastFilePath', newPath);
         markSaved();
         renderTabBar();
+        return true;
     } catch (e) {
         if (e !== 'Save cancelled') console.error('save-as error:', e);
+        return false;
     }
 }
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────
 
 document.addEventListener('keydown', (e) => {
+    if (handleVimKeydown(e)) return;
+
     const meta = e.metaKey || e.ctrlKey;
-    if (meta && e.key === 's') {
+    if (e.metaKey && e.key === 'z') {
+        e.preventDefault();
+        const previousSource = state.vim.source;
+        state.vim = e.shiftKey
+            ? handleVimKey(state.vim, { key: 'r', ctrlKey: true }).state
+            : handleVimKey(state.vim, { key: 'u' }).state;
+        renderVimState(previousSource);
+    } else if (meta && e.key === 's') {
         e.preventDefault();
         e.shiftKey ? saveFileAs() : saveFile();
     } else if (meta && e.key === 'o') {
@@ -434,6 +668,7 @@ listen('menu-save-as',        () => saveFileAs());
 listen('menu-close-tab',      () => closeTab(activeTabId));
 listen('menu-toggle-preview', () => toggleMode());
 listen('menu-toggle-theme',   () => toggleTheme());
+listen('menu-toggle-vim',     () => toggleVim());
 listen('menu-increase-font',  () => changeFontSize(1));
 listen('menu-decrease-font',  () => changeFontSize(-1));
 listen('menu-actual-size',    () => resetFontSize());
@@ -488,13 +723,25 @@ listen('tauri://drag-drop', async (event) => {
 btnOpen.addEventListener('click', openFile);
 btnSave.addEventListener('click', saveFile);
 btnToggle.addEventListener('click', toggleMode);
+btnVim.addEventListener('click', toggleVim);
 btnTheme.addEventListener('click', toggleTheme);
+editor.addEventListener('beforeinput', (e) => {
+    if (state.vimEnabled && state.vim.mode !== 'insert') e.preventDefault();
+});
 editor.addEventListener('input', () => {
     if (!state.isPreviewMode) {
         const caret = getCaretOffset();
         const text = getEditorText();
         const tab = activeTab();
-        if (tab) tab.content = text;
+        if (tab) {
+            state.vim = applyInsertEdit(
+                { ...state.vim, source: tab.content },
+                text,
+                caret,
+            );
+            tab.content = state.vim.source;
+            tab.vimState = state.vim;
+        }
         markDirty();
         renderEditMode(text);
         setCaretOffset(caret);
@@ -509,12 +756,14 @@ applyFontSize();
 const firstTab = createTabState();
 tabs.push(firstTab);
 activeTabId = firstTab.id;
+state.vim = firstTab.vimState;
 renderTabBar();
 updateWordCount();
 editor.classList.add('hidden');
 preview.classList.remove('hidden');
 btnToggle.textContent = 'Edit';
 renderActiveView();
+applyVimState();
 
 // File opened while app is already running (e.g. `emdee other.md`).
 listen('open-file', async (event) => {

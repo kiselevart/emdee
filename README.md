@@ -23,6 +23,7 @@ xattr -cr "/Applications/emdee.app"
 - Unsaved-changes indicator and close guard
 - Word count, auto-save flash, remembers last file
 - Light and dark mode toggle
+- Optional Vim keybindings with Normal, Insert, Visual Line, search, and command modes
 
 ## Building from source
 
@@ -44,6 +45,15 @@ cargo install tauri-cli --locked
 ```bash
 cargo tauri dev
 ```
+
+### Tests
+
+```bash
+npm test
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The JavaScript suite includes pure Vim-engine command sequence tests.
 
 ### Release build (Apple Silicon)
 
